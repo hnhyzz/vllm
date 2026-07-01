@@ -268,6 +268,17 @@ class CustomAllreduce:
             return None
         if self._IS_CAPTURING:
             if torch.cuda.is_current_stream_capturing():
+                # gfx908: route captured all-reduce through the pre-registered
+                # uncached buffer_ptrs (registered=False) instead of binding
+                # `input` directly (registered=True). HIP IPC views of cached
+                # cudaMalloc'd memory don't see peer writes consistently under
+                # graph replay → drift → NaN. The uncached buffer_ptrs path is
+                # coherent. See docs/mi100_decode_opt/scripts/test_e_persistent_car
+                # for the soak that proved this.
+                if current_platform.is_rocm():
+                    from vllm.platforms.rocm import on_gfx908
+                    if on_gfx908():
+                        return self.all_reduce(input, registered=False)
                 return self.all_reduce(input, registered=True)
             else:
                 # If warm up, mimic the allocation pattern since custom
