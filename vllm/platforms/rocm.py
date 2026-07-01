@@ -218,7 +218,7 @@ _ON_GFX9 = any(arch in _GCN_ARCH for arch in ["gfx90a", "gfx942", "gfx950"])
 _ON_GFX90A = "gfx90a" in _GCN_ARCH
 _ON_GFX942 = "gfx942" in _GCN_ARCH
 _ON_GFX950 = "gfx950" in _GCN_ARCH
-
+_ON_GFX908 = "gfx908" in _GCN_ARCH
 
 def _capability_from_gcn_arch(gcn_arch: str) -> tuple[int, int] | None:
     """
@@ -322,6 +322,8 @@ def on_gfx9() -> bool:
 def on_gfx90a() -> bool:
     return _ON_GFX90A
 
+def on_gfx908() -> bool:
+    return _ON_GFX908
 
 def on_gfx942() -> bool:
     return _ON_GFX942
