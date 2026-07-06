@@ -93,25 +93,20 @@ typedef struct _B8x16 {
 template <typename T, int absz, int cbid, int blgp>
 __device__ __forceinline__ floatx4 gcn_mfma4x4x4_instr(const _B16x4& inpA,
                                                        const _B16x4& inpB,
-                                                       const floatx4& inpC) {
+                                                       floatx4 inpC) {
   if constexpr (std::is_same<T, _Float16>::value) {
     return __builtin_amdgcn_mfma_f32_4x4x4f16(inpA, inpB, inpC, absz, cbid,
                                               blgp);
   } else if constexpr (std::is_same<T, __hip_bfloat16>::value) {
 #if defined(__gfx908__)
-    // gfx908 (CDNA1) lacks bf16_1k MFMA. Cast BF16 inputs to FP16 via
-    // float intermediate, then use the FP16 MFMA available on all CDNA.
-    _B16x4 a16, b16;
-    for (int i = 0; i < 4; i++) {
-      float fa = __bfloat162float(
-          reinterpret_cast<const __hip_bfloat16*>(&inpA)[i]);
-      float fb = __bfloat162float(
-          reinterpret_cast<const __hip_bfloat16*>(&inpB)[i]);
-      reinterpret_cast<_Float16*>(&a16)[i] = static_cast<_Float16>(fa);
-      reinterpret_cast<_Float16*>(&b16)[i] = static_cast<_Float16>(fb);
+    // gfx908 (CDNA1) lacks bf16_1k MFMA. We loop twice with f32_4x4x2bf16
+    const __bf16x2* regA = reinterpret_cast<const __bf16x2*>(&inpA);
+    const __bf16x2* regB = reinterpret_cast<const __bf16x2*>(&inpB);
+#pragma unroll
+    for (int i = 0; i < 2; i++) {
+        inpC = __builtin_amdgcn_mfma_f32_4x4x2bf16(regA[i], regB[i], inpC, absz, cbid, blgp);
     }
-    return __builtin_amdgcn_mfma_f32_4x4x4f16(a16, b16, inpC, absz, cbid,
-                                              blgp);
+    return inpC;
 #else
     return __builtin_amdgcn_mfma_f32_4x4x4bf16_1k(inpA, inpB, inpC, absz, cbid,
                                                   blgp);
@@ -124,7 +119,7 @@ __device__ __forceinline__ floatx4 gcn_mfma4x4x4_instr(const _B16x4& inpA,
 template <typename T, int absz, int cbid, int blgp>
 __device__ __forceinline__ floatx4 gcn_mfma16x16x16_instr(const _B16x4& inpA,
                                                           const _B16x4& inpB,
-                                                          const floatx4& inpC) {
+                                                          floatx4 inpC) {
   if constexpr (std::is_same<T, _Float16>::value) {
     return __builtin_amdgcn_mfma_f32_16x16x16f16(inpA, inpB, inpC, absz, cbid,
                                                  blgp);
@@ -132,14 +127,13 @@ __device__ __forceinline__ floatx4 gcn_mfma16x16x16_instr(const _B16x4& inpA,
 #if defined(__gfx908__)
     // gfx908 (CDNA1) lacks bf16_1k MFMA. Cast BF16 inputs to FP16 via
     // float intermediate, then use the FP16 MFMA available on all CDNA.
-    _B16x4 a16, b16;
+    _Float16x4 a16, b16;
+#pragma unroll
     for (int i = 0; i < 4; i++) {
-      float fa = __bfloat162float(
-          reinterpret_cast<const __hip_bfloat16*>(&inpA)[i]);
-      float fb = __bfloat162float(
-          reinterpret_cast<const __hip_bfloat16*>(&inpB)[i]);
-      reinterpret_cast<_Float16*>(&a16)[i] = static_cast<_Float16>(fa);
-      reinterpret_cast<_Float16*>(&b16)[i] = static_cast<_Float16>(fb);
+      float fa = __bfloat162float(inpA[i]);
+      float fb = __bfloat162float(inpB[i]);
+      a16[i] = static_cast<_Float16>(fa);
+      b16[i] = static_cast<_Float16>(fb);
     }
     return __builtin_amdgcn_mfma_f32_16x16x16f16(a16, b16, inpC, absz, cbid,
                                                  blgp);
