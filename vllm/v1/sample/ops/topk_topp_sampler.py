@@ -11,6 +11,7 @@ from vllm.config.model import LogprobsMode
 from vllm.logger import init_logger
 from vllm.platforms import CpuArchEnum, current_platform
 from vllm.triton_utils import HAS_TRITON
+from vllm.platforms.rocm import on_gfx908
 
 if HAS_TRITON:
     from vllm.v1.sample.ops.topk_topp_triton import apply_top_k_top_p_triton
@@ -109,7 +110,7 @@ class TopKTopPSampler(nn.Module):
                 self.forward = self.forward_native
         elif (
             logprobs_mode not in ("processed_logits", "processed_logprobs")
-            and rocm_aiter_ops.is_enabled()
+            and rocm_aiter_ops.is_enabled() and not on_gfx908()
         ):
             self.aiter_ops = None
             self._aiter_ops_import_failed = False
