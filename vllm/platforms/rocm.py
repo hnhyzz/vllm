@@ -347,6 +347,8 @@ def on_rdna() -> bool:
 
 
 def get_cdna_version() -> int:
+    if on_gfx908():
+        return 1
     if on_gfx90a():
         return 2
     if on_gfx942():
